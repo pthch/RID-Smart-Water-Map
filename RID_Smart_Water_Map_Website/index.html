@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>RID Smart Water Map</title>
+  <meta name="description" content="ต้นแบบแผนที่น้ำอัจฉริยะ ติดตามสถานการณ์น้ำ ค้นหาพื้นที่ และทดลองแจ้งเหตุ">
+  <meta name="theme-color" content="#0a6fc2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/leaflet.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- ============ Splash ============ -->
+  <div id="splash" aria-hidden="true">
+    <div class="splash-inner">
+      <div class="splash-drop">
+        <svg viewBox="0 0 120 150">
+          <defs>
+            <clipPath id="dropClip"><path d="M60 4C85 40 112 72 112 98a52 52 0 0 1-104 0C8 72 35 40 60 4z"/></clipPath>
+          </defs>
+          <path d="M60 4C85 40 112 72 112 98a52 52 0 0 1-104 0C8 72 35 40 60 4z" fill="rgba(255,255,255,.15)" stroke="#fff" stroke-width="3"/>
+          <g clip-path="url(#dropClip)">
+            <path class="sw1" d="M-120 95q30-14 60 0t60 0 60 0 60 0 60 0V160H-120z" fill="#7dd3fc"/>
+            <path class="sw2" d="M-120 102q30-12 60 0t60 0 60 0 60 0 60 0V160H-120z" fill="#fff" opacity=".9"/>
+          </g>
+        </svg>
+      </div>
+      <h1>RID <b>Smart Water Map</b></h1>
+      <p data-i18n="appSub">ระบบแผนที่ติดตามสถานการณ์น้ำ</p>
+      <div class="splash-bar"><span></span></div>
+    </div>
+  </div>
+
+  <!-- ============ Top bar ============ -->
+  <header class="topbar">
+    <button class="icon-btn menu-btn" id="menuBtn" aria-expanded="false" data-i18n-title="menu" title="เมนู">
+      <span></span><span></span><span></span>
+    </button>
+    <a class="brand" href="#" id="brandHome">
+      <span class="emblem" aria-hidden="true">
+        <!-- ใส่ตราสัญลักษณ์จริงได้ที่ assets/logo.png แล้วเปลี่ยนเป็น <img> -->
+        <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#fff"/><path d="M24 8c6 8 12 15 12 21a12 12 0 0 1-24 0c0-6 6-13 12-21z" fill="#0a84d6"/><path d="M14 31q5-3 10 0t10 0" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+      </span>
+      <span class="brand-text"><b>RID Smart Water Map</b><small data-i18n="appSub">ระบบแผนที่ติดตามสถานการณ์น้ำ</small></span>
+    </a>
+
+    <div class="geo-filter" role="search" aria-label="ค้นหาพื้นที่ปกครอง">
+      <div class="sel"><select id="selProvince" aria-label="จังหวัด / Province"></select></div>
+      <div class="sel"><select id="selDistrict" aria-label="อำเภอ / District" disabled></select></div>
+      <div class="sel"><select id="selSub" aria-label="ตำบล / Sub-district" disabled></select></div>
+      <button class="btn-search" id="geoSearch" data-i18n="search">ค้นหา</button>
+    </div>
+
+    <div class="top-right">
+      <button class="login-btn" id="loginBtn" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>
+        <span id="loginLabel">เข้าสู่ระบบ / ลงทะเบียน</span>
+      </button>
+      <div class="lang" role="group" aria-label="Language">
+        <span class="lang-thumb"></span>
+        <button data-lang="th" class="on">TH</button>
+        <button data-lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ Alert ticker ============ -->
+  <div class="ticker"><div class="ticker-window"><div class="ticker-track" id="ticker"></div></div></div>
+
+  <!-- ============ Map ============ -->
+  <main id="map" aria-label="แผนที่ชลประทาน / Irrigation map"></main>
+
+  <section class="map-overview is-closed" id="mapOverview" aria-labelledby="mapOverviewTitle">
+    <button type="button" class="map-overview-toggle" id="mapOverviewToggle" aria-expanded="false" aria-controls="mapOverviewBody">
+      <span><span class="map-overview-title" id="mapOverviewTitle" data-ui-th="ภาพรวมสถานการณ์น้ำ" data-ui-en="Water overview">ภาพรวมสถานการณ์น้ำ</span><span class="map-overview-scope" id="mapOverviewScope">ทั่วประเทศ</span></span>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div id="mapOverviewBody" hidden></div>
+  </section>
+  <p class="active-area" id="activeArea" role="status" hidden></p>
+
+  <!-- Top-right tools -->
+  <button type="button" class="quick-btn" id="askWater" data-ui-th="ถามข้อมูลน้ำ" data-ui-en="Ask about water">ถามข้อมูลน้ำ</button>
+  <div class="tools">
+    <div class="place-search" id="placeSearch">
+      <input id="placeInput" aria-label="ค้นหาสถานที่สำคัญ / Search locations" type="search" autocomplete="off" data-i18n-ph="placeSearch" placeholder="เลือกสถานที่สำคัญ" />
+      <button id="placeBtn" aria-label="ค้นหา"><svg viewBox="0 0 24 24"><path d="M10.5 3a7.5 7.5 0 0 1 5.96 12.05l4.25 4.24-1.42 1.42-4.24-4.25A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg></button>
+      <ul class="suggest" id="suggest" role="listbox"></ul>
+    </div>
+    <div class="tool-row">
+      <button class="tool" id="homeBtn" data-i18n-title="home" title="กลับหน้าหลัก">
+        <svg viewBox="0 0 24 24"><path d="M12 3 2 11h3v9h5v-6h4v6h5v-9h3z"/></svg>
+      </button>
+      <button class="tool" id="basemapBtn" data-i18n-title="basemap" title="แผนที่ฐาน">
+        <svg viewBox="0 0 24 24"><path d="M3 4h8v7H3zm10 0h8v7h-8zM3 13h8v7H3zm10 0h8v7h-8z"/></svg>
+      </button>
+      <button class="tool" id="layersBtn" data-i18n-title="layers" title="ชั้นข้อมูล">
+        <svg viewBox="0 0 24 24"><path d="m12 2 10 5.5-10 5.5L2 7.5zm-7.6 9.3L12 15.5l7.6-4.2L22 12.6 12 18 2 12.6zm0 5L12 20.5l7.6-4.2L22 17.6 12 23 2 17.6z"/></svg>
+      </button>
+    </div>
+
+    <div class="panel pop-panel" id="basemapPanel" hidden>
+      <h3 data-i18n="basemap">แผนที่ฐาน</h3>
+      <div class="bm-grid" id="bmGrid"></div>
+    </div>
+    <div class="panel pop-panel" id="layersPanel" hidden>
+      <h3 data-i18n="layers">ชั้นข้อมูล</h3>
+      <ul class="layer-list" id="layerList"></ul>
+      <h3 class="mt" data-i18n="legend">สัญลักษณ์</h3>
+      <div class="status-legend" id="statusLegend"></div>
+    </div>
+  </div>
+
+  <!-- Bottom-left zoom -->
+  <div class="zoom-ctl">
+    <button id="zoomIn" data-i18n-title="zoomIn" title="ขยาย"><svg viewBox="0 0 24 24"><path d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-1 2h2v2h2v2h-2v2H9v-2H7V9h2z"/></svg></button>
+    <button id="zoomOut" data-i18n-title="zoomOut" title="ย่อ"><svg viewBox="0 0 24 24"><path d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM7 9h6v2H7z"/></svg></button>
+  </div>
+
+  <!-- Bottom-center time machine -->
+  <div class="timebar" id="timebar">
+    <button class="tb-play" id="tbPlay" data-i18n-title="play" title="เล่น">
+      <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <svg class="i-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>
+    </button>
+    <div class="tb-body">
+      <div class="tb-head"><span data-i18n="timeMachine">ย้อนดูสถานการณ์</span><b id="tbDate">วันนี้</b></div>
+      <input type="range" id="tbRange" min="0" max="29" value="29" aria-label="date" />
+    </div>
+  </div>
+
+  <!-- Coordinate readout -->
+  <div class="coords" id="coords">—</div>
+
+  <!-- Bottom-right speed dial -->
+  <div class="fab-wrap" id="fabWrap">
+    <div class="fab-actions">
+      <button data-act="track"><span data-ui-th="ติดตามเลขรับเรื่อง" data-ui-en="Track a report">ติดตามเลขรับเรื่อง</span><i><svg viewBox="0 0 24 24"><path d="M4 3h16v18H4zm4 5v2h8V8zm0 5v2h8v-2z"/></svg></i></button>
+      <button data-act="report"><span data-i18n="report">แจ้งเรื่องร้องเรียน</span><i class="warn">
+        <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22zm-1 7h2v6h-2zm0 8h2v2h-2z"/></svg></i></button>
+      <button data-act="locate"><span data-i18n="locate">ตำแหน่งของฉัน</span><i>
+        <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm9 3h-2.1A7 7 0 0 0 13 5.1V3h-2v2.1A7 7 0 0 0 5.1 11H3v2h2.1a7 7 0 0 0 5.9 5.9V21h2v-2.1a7 7 0 0 0 5.9-5.9H21z"/></svg></i></button>
+      <button data-act="share"><span data-i18n="share">คัดลอกลิงก์มุมมองนี้</span><i>
+        <svg viewBox="0 0 24 24"><path d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3 3 0 0 0 0-1.6l6.7-3.4A3 3 0 1 0 15 7l-6.7 3.4a3 3 0 1 0 0 3.2L15 17a3 3 0 1 0 3-1z"/></svg></i></button>
+      <button data-act="tour"><span data-i18n="tour">ทัวร์ชมระบบ</span><i>
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm4.5 5.5-6.4 2.6-2.6 6.4 6.4-2.6zm-4.5 3.3a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4z"/></svg></i></button>
+      <button data-act="fullscreen"><span data-i18n="fullscreen">เต็มจอ</span><i>
+        <svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg></i></button>
+    </div>
+    <button class="fab" id="fabBtn" aria-expanded="false" data-i18n-title="more" title="เพิ่มเติม"><span></span><span></span><span></span></button>
+  </div>
+
+  <!-- ============ Drawer (overview) ============ -->
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <h2 data-i18n="overview">ภาพรวมสถานการณ์น้ำ</h2>
+      <button class="icon-btn dark" id="drawerClose" aria-label="ปิด">✕</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+
+  <!-- Pick banner -->
+  <div class="pick-banner" id="pickBanner" hidden>
+    <span class="pin-anim"></span><span data-i18n="cPick">คลิกบนแผนที่เพื่อปักหมุดตำแหน่ง</span>
+    <button id="pickCenter" type="button" data-ui-th="ปักหมุดกลางแผนที่" data-ui-en="Pin map centre">ปักหมุดกลางแผนที่</button><button id="pickCancel" data-i18n="cancel">ยกเลิก</button>
+  </div>
+
+  <!-- ============ Complaint dialog ============ -->
+  <dialog class="dlg" id="complaintDlg">
+    <form id="complaintForm" method="dialog" novalidate>
+      <header class="dlg-head warn">
+        <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22zm-1 7h2v6h-2zm0 8h2v2h-2z"/></svg>
+        <h2 data-i18n="complaintForm">แบบฟอร์มร้องเรียน</h2>
+        <button type="button" class="icon-btn" data-close aria-label="ปิด">✕</button>
+      </header>
+      <div class="dlg-body">
+        <label class="photo" id="photoDrop">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="photoInput" hidden />
+          <img id="photoImg" alt="" hidden />
+          <span class="photo-hint" id="photoHint">
+            <svg viewBox="0 0 24 24"><path d="M4 5h3l2-2h6l2 2h3a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm8 3.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
+            <span data-i18n="cPhoto">แนบรูปภาพ</span>
+          </span>
+        </label>
+        <label class="fld"><span data-i18n="cTitle">หัวข้อ</span><input name="title" maxlength="120" required /></label>
+        <label class="fld"><span data-i18n="cDetail">รายละเอียด</span><textarea name="detail" rows="3" maxlength="2000" required></textarea></label>
+        <div class="row2">
+          <label class="fld"><span data-i18n="cReporter">ผู้แจ้ง</span><input name="reporter" maxlength="80" /></label>
+          <div class="fld"><span data-i18n="location">ตำแหน่ง</span>
+            <div class="loc-row"><output id="locOut">—</output><button type="button" class="chip-btn" id="relocate" data-i18n="change2">เปลี่ยน</button></div>
+          </div>
+        </div>
+        <div class="fld"><span data-ui-th="หน่วยงานเบื้องต้น (จำลอง)" data-ui-en="Suggested office (demo)">หน่วยงานเบื้องต้น (จำลอง)</span><output id="officeOut" class="office-out">—</output></div>
+    <p class="note" data-ui-th="ข้อมูลการทดลองจะบันทึกในเบราว์เซอร์เครื่องนี้" data-ui-en="Demo reports are stored in this browser.">ข้อมูลการทดลองจะบันทึกในเบราว์เซอร์เครื่องนี้</p>
+        <p class="form-err" id="formErr" role="alert" hidden></p>
+      </div>
+      <footer class="dlg-foot">
+        <button type="button" class="btn ghost" data-close data-i18n="cancel">ยกเลิก</button>
+        <button type="submit" class="btn warn" data-ui-th="ตรวจสอบก่อนส่ง" data-ui-en="Review report">ตรวจสอบก่อนส่ง</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- ============ Login dialog (UI ตัวอย่าง) ============ -->
+  <dialog class="dlg small" id="loginDlg" aria-labelledby="accountTitle">
+    <form id="loginForm">
+      <header class="dlg-head">
+        <h2 id="accountTitle" data-ui-th="เข้าสู่ระบบ / ลงทะเบียน" data-ui-en="Sign in / Register">เข้าสู่ระบบ / ลงทะเบียน</h2>
+        <button type="button" class="icon-btn" data-close aria-label="ปิด / Close">✕</button>
+      </header>
+      <div class="dlg-body">
+        <div class="auth-tabs" role="group" aria-label="ตัวเลือกการเข้าถึง">
+          <button type="button" data-auth="login" aria-pressed="true" data-ui-th="เข้าสู่ระบบ" data-ui-en="Sign in">เข้าสู่ระบบ</button>
+          <button type="button" data-auth="register" aria-pressed="false" data-ui-th="ลงทะเบียน" data-ui-en="Register">ลงทะเบียน</button>
+        </div>
+        <p class="note" data-ui-th="โหมดสาธิต ใช้ทดลองมุมมองประชาชนหรือเจ้าหน้าที่" data-ui-en="Demo mode for exploring public and staff views.">โหมดสาธิต ใช้ทดลองมุมมองประชาชนหรือเจ้าหน้าที่</p>
+        <label class="fld" id="authNameGroup" hidden><span data-ui-th="ชื่อสำหรับทดลองใช้งาน" data-ui-en="Demo display name">ชื่อสำหรับทดลองใช้งาน</span><input name="displayName" maxlength="60" autocomplete="off"></label>
+        <label class="fld"><span data-ui-th="บทบาท" data-ui-en="Role">บทบาท</span><select name="role">
+          <option value="public" data-ui-th="ประชาชน" data-ui-en="Public">ประชาชน</option>
+          <option value="staff" data-ui-th="เจ้าหน้าที่ชลประทาน" data-ui-en="Irrigation staff">เจ้าหน้าที่ชลประทาน</option>
+        </select></label>
+      </div>
+      <footer class="dlg-foot"><button type="submit" class="btn primary" id="authSubmit">เข้าสู่ระบบสาธิต</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="dlg" id="workDlg" aria-labelledby="workTitle">
+    <header class="dlg-head"><h2 id="workTitle"></h2><button type="button" class="icon-btn" data-close aria-label="ปิด / Close">✕</button></header>
+    <div id="workBody" class="dlg-body"></div>
+  </dialog>
+  <!-- Tour spotlight -->
+  <div class="tour" id="tour" hidden>
+    <div class="tour-card"><p id="tourText"></p><div class="tour-foot"><span id="tourStep"></span><button class="btn primary small" id="tourNext">ถัดไป</button></div></div>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  
+<script src="js/leaflet.js"></script>
+  
+<script src="js/translations.js"></script>
+  
+<script src="js/administrative-areas.js"></script>
+<script src="js/water-data.js"></script>
+  
+<script src="js/charts.js"></script>
+  
+<script src="js/app.js"></script>
+</body>
+</html>
